@@ -1,0 +1,22 @@
+#!/bin/bash
+
+cd "$(dirname "$0")/../.."
+
+. setup/lib/SYSTEM.sh
+
+echo "Checking Requirements with PYENV_BIN: $PYENV_BIN"
+REQUIREMENTS_PATH="$(dirname "$0")/../../setup/virtualenv/requirements.txt"
+REQUIREMENTS_DIFF=$(diff <(pip freeze) <(cat "$REQUIREMENTS_PATH"))
+# Evaluate the diff and exit if there are differences, add else
+if [ $? -ne 0 ]; then
+    echo "Error: your pyenv packages has diverged from requirements.txt"
+    echo "$REQUIREMENTS_DIFF" | sed -e 's/^/  /'
+else
+    echo "Your pyenv packages are up to date with requirements.txt"
+fi  
+
+echo "Running Yapf to reformat files"
+$PYENV_BIN/yapf --in-place  --recursive . 
+
+echo "Running Pyright for type checking"
+$PYENV_BIN/pyright 

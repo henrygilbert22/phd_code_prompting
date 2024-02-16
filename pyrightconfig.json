@@ -1,0 +1,30 @@
+{
+  // Files in the exclude paths may still be included in the analysis if they
+  // are referenced by source files that are not excluded.
+  // https://github.com/microsoft/pyright/blob/main/docs/configuration.md
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    ".git",
+    // some folks do `python -m venv venv` style env mgmt for debugging
+    "venv",
+    ".bin",
+    "*.ipynb"
+  ],
+  "extraPaths": [
+    ".bin",
+  ],
+  "ignore": [],
+  "reportMissingImports": true,
+  "reportUnusedVariable": true,
+  "reportMissingTypeStubs": false,
+  "reportPrivateImportUsage": "none",
+  "stubPath": ".bin",
+  "root": ".",
+  "pythonVersion": "3.10",
+  "pythonPlatform": "Linux",
+  "env": {
+    "PYTHONPATH": ".:.bin"
+  }
+
+}
