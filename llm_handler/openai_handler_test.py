@@ -8,12 +8,26 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 
 import openai_handler as openai_handler
 
+@pytest.fixture(autouse=True)
+def local_env_setup():
+    if not os.path.exists('.env.secret'):
+        return
+    with open('.env.secret', 'r') as env_file:
+        for line in env_file.readlines():
+            key, value = line.split('=')
+            os.environ[key] = value
 
 # Clear openai.api_key before each test
 @pytest.fixture(autouse=True)
 def test_env_setup():
     openai.api_key = None
-
+    env_file = open('.env.secret', 'r')
+    env_lines = env_file.readlines()
+    env_file.close()
+    for line in env_lines:
+        key, value = line.split('=')
+        os.environ[key] = value
+    
 
 # This allows us to clear the OPENAI_API_KEY before any test we want
 @pytest.fixture()
