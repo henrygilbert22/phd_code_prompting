@@ -13,16 +13,13 @@ class DefaultEnumMeta(enum.EnumMeta):
 
 class LLMHandler(Protocol):
 
-    def get_text_completion(self,
-                            prompt: str,
-                            model: enum.Enum,
-                            max_tokens: int,
-                            samples: int,
+    def get_text_completion(self, prompt: str, model: enum.Enum,
+                            max_tokens: int, samples: int,
                             **kwargs) -> List[str]:
         ...
 
-    def get_chat_completion(self, messages: List, model: enum.Enum, samples: int,
-                            **kwargs) -> List[str]:
+    def get_chat_completion(self, messages: List, model: enum.Enum,
+                            samples: int, **kwargs) -> List[str]:
         ...
 
     def get_text_embedding(self, input: str, model: enum.Enum) -> List[float]:

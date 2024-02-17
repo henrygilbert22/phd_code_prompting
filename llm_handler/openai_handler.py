@@ -1,26 +1,35 @@
 from __future__ import annotations
 import openai
 from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
+from openai.types.chat.chat_completion import ChatCompletion
 import os
-from typing import List, Optional, ClassVar, Literal
+from typing import List, Optional, ClassVar, Dict, Union, cast
 import backoff
 import enum
 import numpy as np
 
-import utils.llm_handler_interface as llm_handler_interface
+import llm_handler_interface as llm_handler_interface
+import proto.patched_solutions_pb2 as ps_pb2
 
 
-class ChatModelVersion(enum.Enum, metaclass=llm_handler_interface.DefaultEnumMeta):
-    GPT_3_5 = 'gpt-3.5-turbo-1106'
+class ChatModelVersion(enum.Enum,
+                       metaclass=llm_handler_interface.DefaultEnumMeta):
+    GPT_3_5_TURBO = 'gpt-3.5-turbo-1106'
     GPT_4 = 'gpt-4'
     GPT_4_TURBO = 'gpt-4-1106-preview'
 
 
-class EmbeddingModelVersion(enum.Enum, metaclass=llm_handler_interface.DefaultEnumMeta):
+class EmbeddingModelVersion(enum.Enum,
+                            metaclass=llm_handler_interface.DefaultEnumMeta):
     ADA_002 = 'text-embedding-ada-002'
 
 
 class OpenAIHandler(llm_handler_interface.LLMHandler):
+
+    _MODEL_NAME_TO_VERSION: ClassVar[Dict['ps_pb2.ModelType', str]] = {
+        ps_pb2.MODEL_TYPE_GPT_3_5_TURBO: 'gpt-3.5-turbo-1106',
+        ps_pb2.MODEL_TYPE_GPT_4_TURBO: 'gpt-4-1106-preview'
+    }
 
     _ENV_KEY_NAME: ClassVar[str] = 'OPENAI_API_KEY'
 
@@ -30,50 +39,52 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
             raise ValueError(f'{self._ENV_KEY_NAME} not set')
         openai.api_key = _openai_api_key
 
-    @backoff.on_exception(backoff.expo, openai.RateLimitError)
-    def get_text_completion(self,
-                            prompt: str,
-                            model: Optional[EmbeddingModelVersion] = None,
-                            max_tokens: int = 1000,
-                            samples: int = 1,
+    @classmethod
+    def get_model_version(cls, model_type: 'ps_pb2.ModelType') -> str:
+        if model_type not in cls._MODEL_NAME_TO_VERSION:
+            raise ValueError(f'Invalid model: {model_type}')
+        return cls._MODEL_NAME_TO_VERSION[model_type]
+
+    def get_text_completion(self, prompt: str, model: enum.Enum,
+                            max_tokens: int, samples: int,
                             **kwargs) -> List[str]:
-        MODEL_DEFAULT: EmbeddingModelVersion = EmbeddingModelVersion()
-        model = model or MODEL_DEFAULT
-        response: openai.types.Completion = openai.completions.create(model=model.value,
-                                                                      prompt=prompt,
-                                                                      max_tokens=max_tokens,
-                                                                      n=samples,
-                                                                      **kwargs)
-        return [choice.text for choice in response.choices]
+        ...
 
     @backoff.on_exception(backoff.expo, openai.RateLimitError)
     def get_chat_completion(self,
-                            messages: List[ChatCompletionMessageParam],
-                            model: Optional[ChatModelVersion] = None,
-                            samples: int = 1,
-                            **kwargs) -> List[str]:
-        MODEL_DEFAULT: ChatModelVersion = ChatModelVersion()
-        model = model or MODEL_DEFAULT
-        response = openai.chat.completions.create(model=model.value,
-                                                  messages=messages,
-                                                  n=samples,
-                                                  **kwargs)
-        responses: List[str] = []
-        for choice in response.choices:
-            if choice.finish_reason != 'stop' or not choice.message.content:
-                raise ValueError(f'Choice did not complete correctly: {choice}')
-            responses.append(choice.message.content)
-        return responses
+                            messages: Union[List[ChatCompletionMessageParam],
+                                            List[Dict[str, str]]],
+                            model_type: 'ps_pb2.ModelType', **kwargs) -> str:
+        model = self.get_model_version(model_type)
+        response: ChatCompletion = openai.chat.completions.create(
+            model=model,
+            messages=cast(List[ChatCompletionMessageParam], messages),
+            n=1,
+            **kwargs)
+        if len(response.choices) != 1:
+            raise ValueError(f'Expected one choice in response: {response}')
+        if response.choices[0].finish_reason != 'stop' or not response.choices[
+                0].message.content:
+            raise ValueError(
+                f'Choice did not complete correctly: {response.choices[0]}')
+        return response.choices[0].message.content
 
-    @backoff.on_exception(backoff.constant, openai.RateLimitError, interval=30, jitter=None)
-    def get_text_embedding(self,
-                           input: str,
-                           model: Optional[EmbeddingModelVersion] = None) -> List[float]:
+    @backoff.on_exception(backoff.constant,
+                          openai.RateLimitError,
+                          interval=30,
+                          jitter=None)
+    def get_text_embedding(
+            self,
+            input: str,
+            model: Optional[EmbeddingModelVersion] = None) -> List[float]:
         MODEL_DEFAULT: EmbeddingModelVersion = EmbeddingModelVersion()
         model = model or MODEL_DEFAULT
-        response = openai.embeddings.create(model=model.value, encoding_format='float', input=input)
+        response = openai.embeddings.create(model=model.value,
+                                            encoding_format='float',
+                                            input=input)
         if not response.data:
             raise ValueError(f'No embedding in response: {response}')
         elif len(response.data) != 1:
-            raise ValueError(f'More than one embedding in response: {response}')
+            raise ValueError(
+                f'More than one embedding in response: {response}')
         return np.array(response.data[0].embedding, dtype=float).tolist()

@@ -12,6 +12,6 @@ echo "Creating virtualenv"
 setup/virtualenv/create_venv.sh
 
 echo "Activating virtualenv"
-setup/virtualenv/update_requirements.sh
+setup/virtualenv/install_requirements.sh
 
 echo "If you want to use this virtualenv in your current shell, reactivate it"

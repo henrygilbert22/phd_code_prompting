@@ -2,7 +2,7 @@ import os
 from typing import List, Optional, ClassVar, Protocol
 import enum
 
-import utils.llm_handler_interface as llm_handler_interface
+import llm_handler_interface as llm_handler_interface
 
 
 class MockLLMHandler(llm_handler_interface.LLMHandler):

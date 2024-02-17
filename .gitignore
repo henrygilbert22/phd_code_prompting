@@ -1,0 +1,6 @@
+code_contests
+**/*.parquet
+**/__pycache__
+**/*.pyc
+.bin
+**/*.secret

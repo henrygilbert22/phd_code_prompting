@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package code_prompting;
+
+
+message TestResult {
+  string test_id = 1;
+  string problem_id = 2;
+  string solution_id = 3;
+  string solution_output = 4;
+  string exception_info = 5;
+}
+
+message CodePatchingPrompt {
+  string prompt_name = 1;
+  string unformated_prompt = 2;
+}
+
+enum ModelType {
+  MODEL_TYPE_UNSPECIFIED = 0;
+  MODEL_TYPE_GPT_3_5_TURBO = 1;
+  MODEL_TYPE_GPT_4_TURBO = 2;
+}
+
+message PatchedSolution {
+  string solution_id = 1;
+  string problem_id = 2;
+  string prompt_id = 3;
+  ModelType model = 4;
+  string patched_solution = 5;
+  map<string, string> patched_response = 6;
+
+}
