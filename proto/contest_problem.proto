@@ -121,7 +121,7 @@ message ContestProblem {
   string cf_index = 12;  // Problem index, e.g. "A" or "B" or "C", ...
   float cf_points = 13;  // Points for the problem, e.g. 1000.0
   int32 cf_rating = 14;  // Problem rating (difficulty), e.g. 1100
-  string cf_tags = 15;   // Problem tags, e.g. ['greedy', 'math']
+  repeated string cf_tags = 15;   // Problem tags, e.g. ['greedy', 'math']
 
   // Whether the problem was translated to English.
   bool is_description_translated = 20;

@@ -92,12 +92,51 @@ class ContestProblemD(DomainProtocol[ContestProblem]):
             cf_points=proto.cf_points,
             cf_rating=proto.cf_rating)
 
+    @classmethod
+    def from_df_row(cls, row_dict: Dict[str, str]) -> ContestProblemD:
+        seconds = int(row_dict.get("time_limit.seconds", 1))
+        return ContestProblemD(
+            name=row_dict["name"],
+            description=row_dict["description"],
+            difficulty=ContestProblem.Difficulty.Name(
+                int(row_dict["difficulty"] or 0)),
+            time_limit_nsec=int(seconds * 1e9),
+            memory_limit_bytes=row_dict["memory_limit_bytes"],
+            public_tests=[
+                TestD(input, output)
+                for input, output in zip(row_dict["public_tests.input"],
+                                         row_dict["public_tests.output"])
+            ],
+            private_tests=[
+                TestD(input, output)
+                for input, output in zip(row_dict["private_tests.input"],
+                                         row_dict["private_tests.output"])
+            ],
+            generated_tests=[
+                TestD(input, output)
+                for input, output in zip(row_dict["generated_tests.input"],
+                                         row_dict["generated_tests.output"])
+            ],
+            solutions=[
+                SolutionD(solution, language=lang or 0)  # type: ignore
+                for solution, lang in zip(row_dict["solutions.solution"],
+                                          row_dict["solutions.language"])
+            ],
+            incorrect_solutions=[
+                SolutionD(solution, language=lang or 0)  # type: ignore
+                for solution, lang in zip(
+                    row_dict["incorrect_solutions.solution"],
+                    row_dict["incorrect_solutions.language"])
+            ],
+            cf_points=row_dict["cf_points"],
+            cf_rating=row_dict["cf_rating"])
+
     def to_proto(self) -> ContestProblem:
         return ContestProblem(
             name=self.name,
             description=self.description,
             difficulty=self.difficulty,
-            time_limit=Duration(nanos=self.time_limit_nsec),
+            time_limit=Duration(seconds=int(self.time_limit_nsec / 1e9)),
             memory_limit_bytes=self.memory_limit_bytes,
             public_tests=[test.to_proto() for test in self.public_tests],
             private_tests=[test.to_proto() for test in self.private_tests],
@@ -108,6 +147,28 @@ class ContestProblemD(DomainProtocol[ContestProblem]):
             ],
             cf_points=self.cf_points,
             cf_rating=self.cf_rating)
+
+    def only_python_solutions(self) -> ContestProblemD:
+        sol_filter = lambda sol: sol.language == ContestProblem.Solution.Language.PYTHON3
+        return dataclasses.replace(self,
+                                   solutions=list(
+                                       filter(sol_filter, self.solutions)),
+                                   incorrect_solutions=list(
+                                       filter(sol_filter,
+                                              self.incorrect_solutions)))
+
+    @classmethod
+    def from_df(cls, df) -> List[ContestProblemD]:
+        problem_ds = [
+            cls.from_df_row(row_dict) for _, row_dict in df.iterrows()
+        ]
+        only_python_ds = [
+            problem.only_python_solutions() for problem in problem_ds
+        ]
+        return [
+            problem for problem in only_python_ds
+            if problem.solutions and problem.incorrect_solutions
+        ]
 
 
 @dataclasses.dataclass(frozen=True)

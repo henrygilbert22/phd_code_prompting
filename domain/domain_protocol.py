@@ -44,3 +44,12 @@ class DomainProtocol(Protocol[MessageType]):
 
     def to_json(self) -> str:
         return json_format.MessageToJson(self.to_proto()).replace("\n", " ")
+
+    @classmethod
+    def from_dict(cls: Type[DomainProtocolType], d: dict) -> MessageType:
+        try:
+            proto = cls.message_cls()()
+            json_format.ParseDict(d, proto)
+            return cls.from_proto(proto)
+        except json_format.ParseError as e:
+            raise ValueError(f"Failed to parse dict: {e}")
