@@ -1,7 +1,8 @@
 code_contests
 **/*.parquet
-**/__pycache__
+**/*__pycache__/*
 **/*.pyc
 .bin
 **/*.secret
-data
+# data
+*.pyc

@@ -8,7 +8,7 @@ import backoff
 import enum
 import numpy as np
 
-import llm_handler_interface as llm_handler_interface
+import llm_handler.llm_handler_interface as llm_handler_interface
 import proto.patched_solutions_pb2 as ps_pb2
 
 
@@ -16,7 +16,7 @@ class ChatModelVersion(enum.Enum,
                        metaclass=llm_handler_interface.DefaultEnumMeta):
     GPT_3_5_TURBO = 'gpt-3.5-turbo-1106'
     GPT_4 = 'gpt-4'
-    GPT_4_TURBO = 'gpt-4-1106-preview'
+    GPT_4_TURBO = 'gpt-4-0125-preview'
 
 
 class EmbeddingModelVersion(enum.Enum,
@@ -27,8 +27,8 @@ class EmbeddingModelVersion(enum.Enum,
 class OpenAIHandler(llm_handler_interface.LLMHandler):
 
     _MODEL_NAME_TO_VERSION: ClassVar[Dict['ps_pb2.ModelType', str]] = {
-        ps_pb2.MODEL_TYPE_GPT_3_5_TURBO: 'gpt-3.5-turbo-1106',
-        ps_pb2.MODEL_TYPE_GPT_4_TURBO: 'gpt-4-1106-preview'
+        ps_pb2.MODEL_TYPE_GPT_3_5_TURBO: 'gpt-3.5-turbo-0125',
+        ps_pb2.MODEL_TYPE_GPT_4_TURBO: 'gpt-4-turbo-preview'
     }
 
     _ENV_KEY_NAME: ClassVar[str] = 'OPENAI_API_KEY'

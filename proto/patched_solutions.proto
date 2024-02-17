@@ -1,7 +1,15 @@
 syntax = "proto3";
 
 package code_prompting;
+import "proto/contest_problem.proto";
 
+message ContestProblemSet {
+  repeated ContestProblem problems = 1;
+}
+
+message TestResultSet {
+  repeated TestResult test_results = 1;
+}
 
 message TestResult {
   string test_id = 1;
@@ -9,6 +17,7 @@ message TestResult {
   string solution_id = 3;
   string solution_output = 4;
   string exception_info = 5;
+  string expected_output = 6;
 }
 
 message CodePatchingPrompt {
@@ -30,4 +39,8 @@ message PatchedSolution {
   string patched_solution = 5;
   map<string, string> patched_response = 6;
 
+}
+
+message PatchedSolutionSet {
+  repeated PatchedSolution patched_solutions = 1;
 }
