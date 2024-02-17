@@ -125,7 +125,7 @@ def generate_prompted_dataset(
                 results = []
 
         final_timeout = 30
-        try: 
+        try:
             logging.warning(
                 f"Waiting for {len(batched_futures)} futures - {final_timeout} seconds"
             )
