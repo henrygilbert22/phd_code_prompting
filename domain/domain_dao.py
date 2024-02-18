@@ -79,19 +79,22 @@ class CompressedDomainFileDAO(Generic[DomainT]):
             raise FileNotFoundError(f'File not found: {self._dir_path}')
         exexutor = futures.ProcessPoolExecutor()
         futures_ = {
-            exexutor.submit(self._read_from_compressed_text_binary,
-                                       self._domain_cls,
-                                       self._dir_path + "/" + file_path): file_path
+            exexutor.submit(self._read_from_compressed_text_binary, self._domain_cls, self._dir_path + "/" + file_path):
+            file_path
             for file_path in os.listdir(self._dir_path)
         }
         completed_futures = {
             futures_[future]: future.result()
             for future in futures.as_completed(futures_)
         }
-        for file_path in sorted(completed_futures.keys(), key=lambda x: int(x.split('_')[1].split('.')[0])):
+        for file_path in sorted(
+                completed_futures.keys(),
+                key=lambda x: int(x.split('_')[1].split('.')[0])):
             yield completed_futures[file_path]
-        return [completed_futures[file_path]
-                for file_path in sorted(completed_futures.keys())]
+        return [
+            completed_futures[file_path]
+            for file_path in sorted(completed_futures.keys())
+        ]
 
     def clear_cache(self):
         if os.path.exists(self._dir_path):

@@ -86,7 +86,6 @@ CODE_PATCHING_PROMPT_MINIMAL = """
 
 """
 
-
 PROMPTS = [
     CodePatchingPromptD(prompt_name="code_patching_prompt_base",
                         unformated_prompt=CODE_PATCHING_PROMPT_BASE),
@@ -99,7 +98,6 @@ PROMPTS = [
     CodePatchingPromptD(
         prompt_name="code_patching_prompt_self_evaluation",
         unformated_prompt=CODE_PATCHING_PROMPT_SELF_EVALUATION),
-    CodePatchingPromptD(
-        prompt_name="code_patching_prompt_minimal",
-        unformated_prompt=CODE_PATCHING_PROMPT_MINIMAL),
+    CodePatchingPromptD(prompt_name="code_patching_prompt_minimal",
+                        unformated_prompt=CODE_PATCHING_PROMPT_MINIMAL),
 ]

@@ -16,13 +16,13 @@ RESPONSE_FORMAT = {"type": "json_object"}
 def get_prompted_solution(problem: ContestProblemD, solution: SolutionD,
                           prompt: CodePatchingPromptD,
                           model: 'ps_pb2.ModelType') -> PatchedSolutionD:
-    
 
     if prompt.prompt_name == "code_patching_prompt_minimal":
         formatted_prompt = prompt.unformated_prompt
     else:
-        formatted_prompt = prompt.format(function_description=problem.description)
-   
+        formatted_prompt = prompt.format(
+            function_description=problem.description)
+
     messages = [{
         "role": "system",
         "content": formatted_prompt
@@ -61,9 +61,9 @@ def get_prompted_solution(problem: ContestProblemD, solution: SolutionD,
 # def get_get_batched_prompted_solutions(args: List[ArgsT]) -> List[PatchedSolutionD]:
 #     return [get_prompted_solution(*arg) for arg in args]
 
-
-ArgsIdT: TypeAlias = Tuple[str, str,  str, 'ps_pb2.ModelType']
-ArgsT: TypeAlias = Tuple[ContestProblemD,  SolutionD, CodePatchingPromptD, 'ps_pb2.ModelType'] 
+ArgsIdT: TypeAlias = Tuple[str, str, str, 'ps_pb2.ModelType']
+ArgsT: TypeAlias = Tuple[ContestProblemD, SolutionD, CodePatchingPromptD,
+                         'ps_pb2.ModelType']
 
 
 def generate_prompted_dataset(
@@ -75,12 +75,12 @@ def generate_prompted_dataset(
         result_batch_size: int = 500) -> Iterator[PatchedSolutionSetD]:
 
     new_id_dict: Dict[ArgsIdT, ArgsT] = {}
-    problem_solution_pairs = [
-        (problem, solution) 
-        for problem_set in contest_problems
-        for problem in problem_set.problems
-        for solution in problem.incorrect_solutions]
-    for (problem, solution), prompt, model in product(problem_solution_pairs, prompts, model_types):
+    problem_solution_pairs = [(problem, solution)
+                              for problem_set in contest_problems
+                              for problem in problem_set.problems
+                              for solution in problem.incorrect_solutions]
+    for (problem, solution), prompt, model in product(problem_solution_pairs,
+                                                      prompts, model_types):
         arg_id = (problem.proto_id, solution.proto_id, prompt.proto_id, model)
         new_id_dict[arg_id] = (problem, solution, prompt, model)
     logging.warning(f"Generated {len(new_id_dict)} args")
@@ -104,9 +104,9 @@ def generate_prompted_dataset(
     with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
 
         solution_futures = [
-            executor.submit(get_prompted_solution, *args)
-            for args in gen_args]
-        
+            executor.submit(get_prompted_solution, *args) for args in gen_args
+        ]
+
         results_pbar = tqdm.tqdm(total=len(gen_args), desc="Solutions")
         for future in futures.as_completed(solution_futures):
             results.append(future.result())
@@ -114,11 +114,9 @@ def generate_prompted_dataset(
             if len(results) >= result_batch_size:
                 yield from write_results(results, domain_reader)
                 results = []
-        
+
         if results:
             yield from write_results(results, domain_reader)
-
-
 
 
 def write_results(
