@@ -73,7 +73,7 @@ def generate_prompted_dataset(
         domain_reader: CompressedDomainFileDAO[PatchedSolutionSetD],
         max_workers: Optional[int] = None,
         result_batch_size: int = 500,
-        dry_run: bool=False) -> Iterator[PatchedSolutionSetD]:
+        dry_run: bool = False) -> Iterator[PatchedSolutionSetD]:
 
     new_id_dict: Dict[ArgsIdT, ArgsT] = {}
     problem_solution_pairs = [(problem, solution)
@@ -99,7 +99,7 @@ def generate_prompted_dataset(
     if dry_run:
         logging.warning(f"Dry run, not generating solutions")
         return
-    
+
     if results:
         yield PatchedSolutionSetD(solutions=results)
         results = []

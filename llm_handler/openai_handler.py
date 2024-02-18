@@ -41,7 +41,7 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
                 if 'OPENAI_API_KEY' in key:
                     return value
         raise ValueError(f'No OPENAI_API_KEY in {file_path}')
-    
+
     @classmethod
     def set_openai_api_key(cls, file_path: Optional[str] = None):
         openai_api_key = os.environ.get(cls._ENV_KEY_NAME)
