@@ -33,11 +33,22 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
 
     _ENV_KEY_NAME: ClassVar[str] = 'OPENAI_API_KEY'
 
-    def __init__(self, openai_api_key: Optional[str] = None):
-        _openai_api_key = openai_api_key or os.environ.get(self._ENV_KEY_NAME)
-        if not _openai_api_key:
-            raise ValueError(f'{self._ENV_KEY_NAME} not set')
-        openai.api_key = _openai_api_key
+    @classmethod
+    def _read_key_from_file(cls, file_path: str) -> str:
+        with open(file_path, "r") as f:
+            for line in f:
+                key, value = line.strip().split("=")
+                if 'OPENAI_API_KEY' in key:
+                    return value
+        raise ValueError(f'No OPENAI_API_KEY in {file_path}')
+
+    def __init__(self, file_path: Optional[str] = None):
+        openai_api_key = os.environ.get(self._ENV_KEY_NAME)
+        if file_path:
+            openai_api_key = self._read_key_from_file(file_path)
+        if not openai_api_key:
+            raise ValueError(f'{self._ENV_KEY_NAME} not found')
+        openai.api_key = openai_api_key
 
     @classmethod
     def get_model_version(cls, model_type: 'ps_pb2.ModelType') -> str:

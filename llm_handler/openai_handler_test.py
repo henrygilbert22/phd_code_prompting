@@ -68,17 +68,6 @@ def test_init_without_key(mock_settings_env_vars):
     assert openai.api_key == None
 
 
-def test_init_with_key_as_param():
-    # Ensure key is set as env var, key value is unique from _TEST_KEY, and openai.api_key not set
-    assert not os.environ[
-        openai_handler.OpenAIHandler._ENV_KEY_NAME] == _TEST_KEY
-    assert openai.api_key == None
-    # Ensure successful instantiation and openai.api_key properly set
-    handler = openai_handler.OpenAIHandler(openai_api_key=_TEST_KEY)
-    assert isinstance(handler, openai_handler.OpenAIHandler)
-    assert openai.api_key == _TEST_KEY
-
-
 def test_init_with_key_as_env_var(mock_settings_env_vars):
     # Ensure key not set as env var and openai.api_key not set
     with pytest.raises(KeyError):
