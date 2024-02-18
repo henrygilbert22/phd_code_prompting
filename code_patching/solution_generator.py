@@ -1,11 +1,9 @@
 import concurrent.futures as futures
 import json
-from typing import Iterator, List, Dict, Optional, Iterable, Tuple
+from typing import Iterator, List, Dict, Optional, Iterable, Tuple, TypeAlias
 from itertools import product
 import tqdm
 import logging
-from collections import defaultdict
-from itertools import chain
 
 from domain.problems_d import CodePatchingPromptD, ContestProblemD, SolutionD, PatchedSolutionD, PatchedSolutionSetD, ContestProblemSetD
 from llm_handler.openai_handler import OpenAIHandler
@@ -14,13 +12,17 @@ from domain.domain_dao import CompressedDomainFileDAO
 
 RESPONSE_FORMAT = {"type": "json_object"}
 
-GenArgsDict = Dict[str, Dict[CodePatchingPromptD, Dict[str, Dict[str, str]]]]
 
-
-def get_prompted_solution(prompt: CodePatchingPromptD,
-                          problem: ContestProblemD, solution: SolutionD,
+def get_prompted_solution(problem: ContestProblemD, solution: SolutionD,
+                          prompt: CodePatchingPromptD,
                           model: 'ps_pb2.ModelType') -> PatchedSolutionD:
-    formatted_prompt = prompt.format(function_description=problem.description)
+    
+
+    if prompt.prompt_name == "code_patching_prompt_minimal":
+        formatted_prompt = prompt.unformated_prompt
+    else:
+        formatted_prompt = prompt.format(function_description=problem.description)
+   
     messages = [{
         "role": "system",
         "content": formatted_prompt
@@ -56,6 +58,14 @@ def get_prompted_solution(prompt: CodePatchingPromptD,
         patched_response={"response": str(patched_response_dict)})
 
 
+# def get_get_batched_prompted_solutions(args: List[ArgsT]) -> List[PatchedSolutionD]:
+#     return [get_prompted_solution(*arg) for arg in args]
+
+
+ArgsIdT: TypeAlias = Tuple[str, str,  str, 'ps_pb2.ModelType']
+ArgsT: TypeAlias = Tuple[ContestProblemD,  SolutionD, CodePatchingPromptD, 'ps_pb2.ModelType'] 
+
+
 def generate_prompted_dataset(
         contest_problems: List[ContestProblemSetD],
         model_types: List['ps_pb2.ModelType'],
@@ -64,81 +74,51 @@ def generate_prompted_dataset(
         max_workers: Optional[int] = None,
         result_batch_size: int = 500) -> Iterator[PatchedSolutionSetD]:
 
-    new_arg_ids: Dict[Tuple[str, str, ps_pb2.ModelType, str],
-                      Tuple[CodePatchingPromptD, ContestProblemD, SolutionD,
-                            ps_pb2.ModelType]] = {}
-    for contest_problem in contest_problems:
-        for problem in contest_problem.problems:
-            for solution in problem.incorrect_solutions:
-                for model in model_types:
-                    for prompt in prompts:
-                        arg_id = (problem.proto_id, solution.proto_id, model,
-                                  prompt.proto_id)
-                        new_arg_ids[arg_id] = (prompt, problem, solution,
-                                               model)
+    new_id_dict: Dict[ArgsIdT, ArgsT] = {}
+    problem_solution_pairs = [
+        (problem, solution) 
+        for problem_set in contest_problems
+        for problem in problem_set.problems
+        for solution in problem.incorrect_solutions]
+    for (problem, solution), prompt, model in product(problem_solution_pairs, prompts, model_types):
+        arg_id = (problem.proto_id, solution.proto_id, prompt.proto_id, model)
+        new_id_dict[arg_id] = (problem, solution, prompt, model)
+    logging.warning(f"Generated {len(new_id_dict)} args")
 
-    existing_solutions: Dict[Tuple[str, str, ps_pb2.ModelType, str],
-                             PatchedSolutionD] = {}
+    results = []
     for existing_set in domain_reader.read():
         for existing_sol in existing_set.solutions:
             arg_id = (existing_sol.problem_id, existing_sol.solution_id,
-                      existing_sol.model, existing_sol.prompt_id)
-            existing_solutions[arg_id] = existing_sol
+                      existing_sol.prompt_id, existing_sol.model)
+            if arg_id in new_id_dict:
+                results.append(existing_sol)
+                new_id_dict.pop(arg_id)
 
-    matching_cached_ids = set(new_arg_ids.keys()).intersection(
-        existing_solutions.keys())
-    logging.warning(f"Found {len(matching_cached_ids)} matching cached ids")
-    new_arg_ids = {
-        k: v
-        for k, v in new_arg_ids.items() if k not in matching_cached_ids
-    }
-    cached_set = PatchedSolutionSetD(
-        [existing_solutions[cached_id] for cached_id in matching_cached_ids])
-    if cached_set.solutions:
-        yield cached_set
+    logging.warning(f"Skipped {len(results)} already generated solutions")
+    if results:
+        yield PatchedSolutionSetD(solutions=results)
+        results = []
 
-    results = []
-    gen_args = list(new_arg_ids.values())
-    logging.warning(f"Generated {len(gen_args)}")
+    gen_args = list(new_id_dict.values())
+    logging.warning(f"Generated {len(gen_args)} and")
     with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
 
-        batched_futures: List[futures.Future[PatchedSolutionD]] = []
-        result_pbar = tqdm.tqdm(total=len(gen_args), desc=f"Solutions")
-        while gen_args:
-
-            prompted_future = executor.submit(get_prompted_solution,
-                                              *gen_args.pop())
-            batched_futures.append(prompted_future)
-            if len(batched_futures) < result_batch_size:
-                continue
-
-            completed, running = futures.wait(
-                batched_futures,
-                timeout=10,
-                return_when=futures.FIRST_COMPLETED)
-            results += [future.result() for future in completed]
-            batched_futures = list(running)
-            result_pbar.update(len(completed))
-
+        solution_futures = [
+            executor.submit(get_prompted_solution, *args)
+            for args in gen_args]
+        
+        results_pbar = tqdm.tqdm(total=len(gen_args), desc="Solutions")
+        for future in futures.as_completed(solution_futures):
+            results.append(future.result())
+            results_pbar.update()
             if len(results) >= result_batch_size:
                 yield from write_results(results, domain_reader)
                 results = []
-
-        final_timeout = 30
-        try:
-            logging.warning(
-                f"Waiting for {len(batched_futures)} futures - {final_timeout} seconds"
-            )
-            for future in futures.as_completed(batched_futures,
-                                               timeout=final_timeout):
-                results.append(future.result())
-                result_pbar.update()
-        except futures.TimeoutError:
-            logging.warning(
-                f"Timed out after {final_timeout} seconds with {len(batched_futures)} futures remaining"
-            )
-        finally:
+        
+        if results:
             yield from write_results(results, domain_reader)
+
+
 
 
 def write_results(

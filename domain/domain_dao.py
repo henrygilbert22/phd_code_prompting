@@ -2,6 +2,7 @@ import os
 from typing import TypeVar, Type, Iterable, Generic
 import dataclasses
 import concurrent.futures as futures
+import logging
 
 from domain.domain_protocol import DomainProtocol
 
@@ -77,13 +78,25 @@ class CompressedDomainFileDAO(Generic[DomainT]):
         if not os.path.exists(self._dir_path):
             raise FileNotFoundError(f'File not found: {self._dir_path}')
         exexutor = futures.ProcessPoolExecutor()
-        futures_ = [
+        futures_ = {
             exexutor.submit(self._read_from_compressed_text_binary,
-                            self._domain_cls, self._dir_path + "/" + file_path)
+                                       self._domain_cls,
+                                       self._dir_path + "/" + file_path): file_path
             for file_path in os.listdir(self._dir_path)
-        ]
-        for future in futures.as_completed(futures_):
-            yield future.result()
+        }
+        completed_futures = {
+            futures_[future]: future.result()
+            for future in futures.as_completed(futures_)
+        }
+        for file_path in sorted(completed_futures.keys(), key=lambda x: int(x.split('_')[1].split('.')[0])):
+            yield completed_futures[file_path]
+        return [completed_futures[file_path]
+                for file_path in sorted(completed_futures.keys())]
+
+    def clear_cache(self):
+        if os.path.exists(self._dir_path):
+            for file in os.listdir(self._dir_path):
+                os.remove(f'{self._dir_path}/{file}')
 
     def write(self, domain_objects: Iterable[DomainT]):
         if not os.path.exists(self._dir_path):
