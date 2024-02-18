@@ -57,14 +57,9 @@ def get_prompted_solution(problem: ContestProblemD, solution: SolutionD,
         patched_solution=patched_solution,
         patched_response={"response": str(patched_response_dict)})
 
-
-# def get_get_batched_prompted_solutions(args: List[ArgsT]) -> List[PatchedSolutionD]:
-#     return [get_prompted_solution(*arg) for arg in args]
-
 ArgsIdT: TypeAlias = Tuple[str, str, str, 'ps_pb2.ModelType']
 ArgsT: TypeAlias = Tuple[ContestProblemD, SolutionD, CodePatchingPromptD,
                          'ps_pb2.ModelType']
-
 
 def generate_prompted_dataset(
         contest_problems: List[ContestProblemSetD],
@@ -84,7 +79,7 @@ def generate_prompted_dataset(
                                                       prompts, model_types):
         arg_id = (problem.proto_id, solution.proto_id, prompt.proto_id, model)
         new_id_dict[arg_id] = (problem, solution, prompt, model)
-    logging.warning(f"Generated new {len(new_id_dict)} args")
+    logging.info(f"Generated new {len(new_id_dict)} args")
 
     results = []
     for existing_set in domain_reader.read():
@@ -105,7 +100,7 @@ def generate_prompted_dataset(
         results = []
 
     gen_args = list(new_id_dict.values())
-    logging.warning(f"Generated {len(gen_args)} and")
+    logging.info(f"Generated {len(gen_args)} and")
     with futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
 
         solution_futures = [

@@ -79,7 +79,7 @@ def eval_patched_solutions(
         for i in range(0, len(arg_list), process_batch_size)
     ]
 
-    logging.warning(
+    logging.info(
         f"{process_batch_size=} {batch_size=} - {len(process_batches)} batches - {len(arg_list)} total tests"
     )
     results_pbar = tqdm.tqdm(total=len(arg_list), desc="Test Evals")
