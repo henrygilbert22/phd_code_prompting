@@ -41,13 +41,14 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
                 if 'OPENAI_API_KEY' in key:
                     return value
         raise ValueError(f'No OPENAI_API_KEY in {file_path}')
-
-    def __init__(self, file_path: Optional[str] = None):
-        openai_api_key = os.environ.get(self._ENV_KEY_NAME)
+    
+    @classmethod
+    def set_openai_api_key(cls, file_path: Optional[str] = None):
+        openai_api_key = os.environ.get(cls._ENV_KEY_NAME)
         if file_path:
-            openai_api_key = self._read_key_from_file(file_path)
+            openai_api_key = cls._read_key_from_file(file_path)
         if not openai_api_key:
-            raise ValueError(f'{self._ENV_KEY_NAME} not found')
+            raise ValueError(f'{cls._ENV_KEY_NAME} not found')
         openai.api_key = openai_api_key
 
     @classmethod
@@ -62,11 +63,12 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
         ...
 
     @backoff.on_exception(backoff.expo, openai.RateLimitError)
-    def get_chat_completion(self,
+    @classmethod
+    def get_chat_completion(cls,
                             messages: Union[List[ChatCompletionMessageParam],
                                             List[Dict[str, str]]],
                             model_type: 'ps_pb2.ModelType', **kwargs) -> str:
-        model = self.get_model_version(model_type)
+        model = cls.get_model_version(model_type)
         response: ChatCompletion = openai.chat.completions.create(
             model=model,
             messages=cast(List[ChatCompletionMessageParam], messages),
@@ -84,8 +86,9 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
                           openai.RateLimitError,
                           interval=30,
                           jitter=None)
+    @classmethod
     def get_text_embedding(
-            self,
+            cls,
             input: str,
             model: Optional[EmbeddingModelVersion] = None) -> List[float]:
         MODEL_DEFAULT: EmbeddingModelVersion = EmbeddingModelVersion()

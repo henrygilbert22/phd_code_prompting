@@ -87,6 +87,7 @@ class CompressedDomainFileDAO(Generic[DomainT]):
             futures_[future]: future.result()
             for future in futures.as_completed(futures_)
         }
+        logging.warning(f"Read {len(completed_futures)} files from {self._dir_path}")
         for file_path in sorted(
                 completed_futures.keys(),
                 key=lambda x: int(x.split('_')[1].split('.')[0])):

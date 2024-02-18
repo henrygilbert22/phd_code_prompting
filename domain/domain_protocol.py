@@ -3,14 +3,16 @@ from typing import TypeVar, get_args, Type, Protocol, Optional, Tuple
 from google.protobuf import json_format, message
 import hashlib
 import gzip
-from functools import cached_property
+import dataclasses
 
 MessageType = TypeVar("MessageType", bound=message.Message)
 DomainProtocolType = TypeVar("DomainProtocolType", bound='DomainProtocol')
 
-
+@dataclasses.dataclass(frozen=True)
 class DomainProtocol(Protocol[MessageType]):
+    
 
+    
     @property
     def proto_id(self) -> str:
         return hashlib.sha256(

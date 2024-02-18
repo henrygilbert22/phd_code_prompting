@@ -6,7 +6,7 @@ import tqdm
 import logging
 
 from domain.problems_d import CodePatchingPromptD, ContestProblemD, SolutionD, PatchedSolutionD, PatchedSolutionSetD, ContestProblemSetD
-from llm_handler.openai_handler import OpenAIHandler
+from llm_handler.openai_handler import OpenAIHandler as openai_handler
 import proto.patched_solutions_pb2 as ps_pb2
 from domain.domain_dao import CompressedDomainFileDAO
 
@@ -32,7 +32,7 @@ def get_prompted_solution(problem: ContestProblemD, solution: SolutionD,
     }]
 
     try:
-        patched_solution_response = OpenAIHandler().get_chat_completion(
+        patched_solution_response = openai_handler.get_chat_completion(
             messages=messages,
             model_type=model,
             response_format=RESPONSE_FORMAT)
@@ -72,7 +72,8 @@ def generate_prompted_dataset(
         prompts: List[CodePatchingPromptD],
         domain_reader: CompressedDomainFileDAO[PatchedSolutionSetD],
         max_workers: Optional[int] = None,
-        result_batch_size: int = 500) -> Iterator[PatchedSolutionSetD]:
+        result_batch_size: int = 500,
+        dry_run: bool=False) -> Iterator[PatchedSolutionSetD]:
 
     new_id_dict: Dict[ArgsIdT, ArgsT] = {}
     problem_solution_pairs = [(problem, solution)
@@ -83,7 +84,7 @@ def generate_prompted_dataset(
                                                       prompts, model_types):
         arg_id = (problem.proto_id, solution.proto_id, prompt.proto_id, model)
         new_id_dict[arg_id] = (problem, solution, prompt, model)
-    logging.warning(f"Generated {len(new_id_dict)} args")
+    logging.warning(f"Generated new {len(new_id_dict)} args")
 
     results = []
     for existing_set in domain_reader.read():
@@ -95,6 +96,10 @@ def generate_prompted_dataset(
                 new_id_dict.pop(arg_id)
 
     logging.warning(f"Skipped {len(results)} already generated solutions")
+    if dry_run:
+        logging.warning(f"Dry run, not generating solutions")
+        return
+    
     if results:
         yield PatchedSolutionSetD(solutions=results)
         results = []
