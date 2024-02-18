@@ -57,9 +57,11 @@ def get_prompted_solution(problem: ContestProblemD, solution: SolutionD,
         patched_solution=patched_solution,
         patched_response={"response": str(patched_response_dict)})
 
+
 ArgsIdT: TypeAlias = Tuple[str, str, str, 'ps_pb2.ModelType']
 ArgsT: TypeAlias = Tuple[ContestProblemD, SolutionD, CodePatchingPromptD,
                          'ps_pb2.ModelType']
+
 
 def generate_prompted_dataset(
         contest_problems: List[ContestProblemSetD],
