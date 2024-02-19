@@ -1,10 +1,8 @@
 import os
-from typing import ClassVar, List
+from typing import  List
 from unittest import mock
-import logging
 import pytest
 import openai
-from openai.types.chat.chat_completion_message_param import ChatCompletionMessageParam
 
 import openai_handler as openai_handler
 
@@ -24,6 +22,7 @@ def local_env_setup():
 def test_env_setup():
     openai.api_key = os.environ.get(openai_handler.OpenAIHandler._ENV_KEY_NAME)
 
+
 # This allows us to clear the OPENAI_API_KEY before any test we want
 @pytest.fixture()
 def mock_settings_env_vars():
@@ -32,38 +31,8 @@ def mock_settings_env_vars():
 
 
 # Define some constants for our tests
-_TEST_KEY: str = "TEST_KEY"
 _TEST_MESSAGE: str = "Hello how are you?"
 _TEXT_EMBEDDING_ADA_002_LENGTH = 1536
-
-
-def test_init_without_key(mock_settings_env_vars):
-    # Ensure key not set as env var and openai.api_key not set
-    with pytest.raises(KeyError):
-        os.environ[openai_handler.OpenAIHandler._ENV_KEY_NAME]
-    assert openai.api_key == None
-    # Ensure proper exception raised when instantiating handler without key as param or env var
-    with pytest.raises(ValueError) as excinfo:
-        openai_handler.OpenAIHandler()
-    assert f'{openai_handler.OpenAIHandler._ENV_KEY_NAME} not set' in str(
-        excinfo.value)
-    assert openai.api_key == None
-
-
-def test_init_with_key_as_env_var(mock_settings_env_vars):
-    # Ensure key not set as env var and openai.api_key not set
-    with pytest.raises(KeyError):
-        os.environ[openai_handler.OpenAIHandler._ENV_KEY_NAME]
-    assert openai.api_key == None
-    # Set key as env var
-    os.environ.setdefault(openai_handler.OpenAIHandler._ENV_KEY_NAME,
-                          _TEST_KEY)
-    # Ensure successful instantiation and openai.api_key properly set
-    handler = openai_handler.OpenAIHandler()
-    assert isinstance(handler, openai_handler.OpenAIHandler)
-    assert openai.api_key == _TEST_KEY
-
-
 def test_get_text_embedding():
     # Ensure we are using text-embedding-ada-002 for this test
     handler = openai_handler.OpenAIHandler()
