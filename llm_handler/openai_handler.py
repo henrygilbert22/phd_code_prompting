@@ -37,6 +37,7 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
     def _read_key_from_file(cls, file_path: str) -> str:
         with open(file_path, "r") as f:
             for line in f:
+                print(line)
                 key, value = line.strip().split("=")
                 if 'OPENAI_API_KEY' in key:
                     return value
@@ -45,7 +46,7 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
     @classmethod
     def set_openai_api_key(cls, file_path: Optional[str] = None):
         openai_api_key = os.environ.get(cls._ENV_KEY_NAME)
-        if file_path:
+        if file_path and not openai_api_key:
             openai_api_key = cls._read_key_from_file(file_path)
         if not openai_api_key:
             raise ValueError(f'{cls._ENV_KEY_NAME} not found')
@@ -82,16 +83,14 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
                 f'Choice did not complete correctly: {response.choices[0]}')
         return response.choices[0].message.content
 
-    @backoff.on_exception(backoff.constant,
-                          openai.RateLimitError,
-                          interval=30,
-                          jitter=None)
+
+
     @classmethod
     def get_text_embedding(
             cls,
             input: str,
             model: Optional[EmbeddingModelVersion] = None) -> List[float]:
-        MODEL_DEFAULT: EmbeddingModelVersion = EmbeddingModelVersion()
+        MODEL_DEFAULT: EmbeddingModelVersion = EmbeddingModelVersion.ADA_002
         model = model or MODEL_DEFAULT
         response = openai.embeddings.create(model=model.value,
                                             encoding_format='float',
