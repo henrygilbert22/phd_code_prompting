@@ -83,8 +83,6 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
                 f'Choice did not complete correctly: {response.choices[0]}')
         return response.choices[0].message.content
 
-
-
     @classmethod
     def get_text_embedding(
             cls,
