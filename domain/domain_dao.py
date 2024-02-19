@@ -1,5 +1,5 @@
 import os
-from typing import TypeVar, Type, Iterable, Generic
+from typing import TypeVar, Type, Iterable, Generic, Tuple
 import dataclasses
 import concurrent.futures as futures
 import logging
@@ -68,36 +68,48 @@ class CompressedDomainFileDAO(Generic[DomainT]):
     _dir_path: str
     _domain_cls: Type[DomainT]
 
+    def __post_init__(self):
+       if not os.path.exists(self._dir_path):
+            raise FileNotFoundError(f'File not found: {self._dir_path}')
+
     @staticmethod
     def _read_from_compressed_text_binary(domain_cls: Type[DomainT],
                                           file_path: str) -> DomainT:
         with open(file_path, 'rb') as file:
             return domain_cls.from_compressed(file.read())
+        
+    def _ff_path(self, file_path: str) -> str:
+        return f'{self._dir_path}/{file_path}'
+    
+    @property
+    def file_paths(self) -> Iterable[str]:
+        return map(self._ff_path, os.listdir(self._dir_path))
+    
+    @staticmethod
+    def _inc_from_path(file_path: str) -> int:
+        return int(file_path.split('_')[-1].split('.')[0])
 
-    def read(self) -> Iterable[DomainT]:
-        if not os.path.exists(self._dir_path):
-            raise FileNotFoundError(f'File not found: {self._dir_path}')
-        exexutor = futures.ProcessPoolExecutor()
-        futures_ = {
-            exexutor.submit(self._read_from_compressed_text_binary, self._domain_cls, self._dir_path + "/" + file_path):
-            file_path
-            for file_path in os.listdir(self._dir_path)
-        }
-        completed_futures = {
-            futures_[future]: future.result()
-            for future in futures.as_completed(futures_)
-        }
-        logging.info(
-            f"Read {len(completed_futures)} files from {self._dir_path}")
-        for file_path in sorted(
-                completed_futures.keys(),
-                key=lambda x: int(x.split('_')[1].split('.')[0])):
-            yield completed_futures[file_path]
-        return [
-            completed_futures[file_path]
-            for file_path in sorted(completed_futures.keys())
-        ]
+    def _parallel_read(self) -> Iterable[Tuple[str, DomainT]]:        
+        with futures.ProcessPoolExecutor() as exexutor:
+            futures_dict = {}
+            for file_path in self.file_paths:
+                future = exexutor.submit(
+                    self._read_from_compressed_text_binary, self._domain_cls, file_path)
+                futures_dict[future] = file_path
+            for future in futures.as_completed(futures_dict):
+                file_path = futures_dict[future]
+                yield (file_path, future.result())
+   
+    def read(self, parallelize: bool=False) -> Iterable[DomainT]:
+        read_fn = self._parallel_read if parallelize else self._sequential_read
+        for _, domains in sorted(read_fn(), key=lambda x: self._inc_from_path(x[0])):
+            yield domains
 
+    def _sequential_read(self) -> Iterable[Tuple[str, DomainT]]:
+        for file_path in self.file_paths:
+            domains = self._read_from_compressed_text_binary(self._domain_cls, file_path) 
+            yield (file_path, domains)
+           
     def clear_cache(self):
         if os.path.exists(self._dir_path):
             for file in os.listdir(self._dir_path):
