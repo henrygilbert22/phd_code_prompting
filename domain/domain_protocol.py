@@ -2,11 +2,14 @@ from __future__ import annotations
 from typing import TypeVar, get_args, Type, Protocol, Optional, Tuple
 from google.protobuf import json_format, message
 import hashlib
+import gzip
+import dataclasses
 
 MessageType = TypeVar("MessageType", bound=message.Message)
 DomainProtocolType = TypeVar("DomainProtocolType", bound='DomainProtocol')
 
 
+@dataclasses.dataclass(frozen=True)
 class DomainProtocol(Protocol[MessageType]):
 
     @property
@@ -53,3 +56,13 @@ class DomainProtocol(Protocol[MessageType]):
             return cls.from_proto(proto)
         except json_format.ParseError as e:
             raise ValueError(f"Failed to parse dict: {e}")
+
+    def to_compressed(self) -> bytes:
+        return gzip.compress(self.to_proto().SerializeToString())
+
+    @classmethod
+    def from_compressed(cls: Type[DomainProtocolType],
+                        compressed: bytes) -> DomainProtocolType:
+        proto = cls.message_cls()()
+        proto.ParseFromString(gzip.decompress(compressed))
+        return cls.from_proto(proto)

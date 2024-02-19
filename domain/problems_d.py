@@ -1,12 +1,49 @@
 from __future__ import annotations
 import dataclasses
-from typing import Dict, List, ClassVar
-from google.protobuf.duration_pb2 import Duration
-import enum
+from typing import Dict, List, ClassVar, Any
+import google.protobuf.duration_pb2 as duration_pb2
 
 from proto.contest_problem_pb2 import ContestProblem
 import proto.patched_solutions_pb2 as ps_pb2
 from domain.domain_protocol import DomainProtocol
+
+
+@dataclasses.dataclass(frozen=True)
+class ContestProblemSetD(DomainProtocol[ps_pb2.ContestProblemSet]):
+    problems: List[ContestProblemD]
+
+    @classmethod
+    def from_proto(cls, proto: ps_pb2.ContestProblemSet) -> ContestProblemSetD:
+        return ContestProblemSetD(problems=[
+            ContestProblemD.from_proto(problem) for problem in proto.problems
+        ])
+
+    def to_proto(self) -> ps_pb2.ContestProblemSet:
+        return ps_pb2.ContestProblemSet(
+            problems=[problem.to_proto() for problem in self.problems])
+
+    @classmethod
+    def compressed_from_df(cls, df) -> bytes:
+        domain = ContestProblemSetD(ContestProblemD.from_df(df))
+        return domain.to_compressed()
+
+
+@dataclasses.dataclass(frozen=True)
+class PatchedSolutionSetD(DomainProtocol[ps_pb2.PatchedSolutionSet]):
+    solutions: List[PatchedSolutionD]
+
+    @classmethod
+    def from_proto(cls,
+                   proto: ps_pb2.PatchedSolutionSet) -> PatchedSolutionSetD:
+        return PatchedSolutionSetD(solutions=[
+            PatchedSolutionD.from_proto(solution)
+            for solution in proto.patched_solutions
+        ])
+
+    def to_proto(self) -> ps_pb2.PatchedSolutionSet:
+        return ps_pb2.PatchedSolutionSet(patched_solutions=[
+            solution.to_proto() for solution in self.solutions
+        ])
 
 
 @dataclasses.dataclass(frozen=True)
@@ -93,7 +130,7 @@ class ContestProblemD(DomainProtocol[ContestProblem]):
             cf_rating=proto.cf_rating)
 
     @classmethod
-    def from_df_row(cls, row_dict: Dict[str, str]) -> ContestProblemD:
+    def from_df_row(cls, row_dict: Dict[str, Any]) -> ContestProblemD:
         seconds = int(row_dict.get("time_limit.seconds", 1))
         return ContestProblemD(
             name=row_dict["name"],
@@ -104,29 +141,29 @@ class ContestProblemD(DomainProtocol[ContestProblem]):
             memory_limit_bytes=row_dict["memory_limit_bytes"],
             public_tests=[
                 TestD(input, output)
-                for input, output in zip(row_dict["public_tests.input"],
-                                         row_dict["public_tests.output"])
+                for input, output in zip(row_dict["public_tests"]["input"],
+                                         row_dict["public_tests"]["output"])
             ],
             private_tests=[
                 TestD(input, output)
-                for input, output in zip(row_dict["private_tests.input"],
-                                         row_dict["private_tests.output"])
+                for input, output in zip(row_dict["private_tests"]["input"],
+                                         row_dict["private_tests"]["output"])
             ],
             generated_tests=[
                 TestD(input, output)
-                for input, output in zip(row_dict["generated_tests.input"],
-                                         row_dict["generated_tests.output"])
+                for input, output in zip(row_dict["generated_tests"]["input"],
+                                         row_dict["generated_tests"]["output"])
             ],
             solutions=[
                 SolutionD(solution, language=lang or 0)  # type: ignore
-                for solution, lang in zip(row_dict["solutions.solution"],
-                                          row_dict["solutions.language"])
+                for solution, lang in zip(row_dict["solutions"]["solution"],
+                                          row_dict["solutions"]["language"])
             ],
             incorrect_solutions=[
                 SolutionD(solution, language=lang or 0)  # type: ignore
                 for solution, lang in zip(
-                    row_dict["incorrect_solutions.solution"],
-                    row_dict["incorrect_solutions.language"])
+                    row_dict["incorrect_solutions"]["solution"],
+                    row_dict["incorrect_solutions"]["language"])
             ],
             cf_points=row_dict["cf_points"],
             cf_rating=row_dict["cf_rating"])
@@ -136,7 +173,8 @@ class ContestProblemD(DomainProtocol[ContestProblem]):
             name=self.name,
             description=self.description,
             difficulty=self.difficulty,
-            time_limit=Duration(seconds=int(self.time_limit_nsec / 1e9)),
+            time_limit=duration_pb2.Duration(seconds=int(self.time_limit_nsec /
+                                                         1e9)),
             memory_limit_bytes=self.memory_limit_bytes,
             public_tests=[test.to_proto() for test in self.public_tests],
             private_tests=[test.to_proto() for test in self.private_tests],
@@ -172,12 +210,40 @@ class ContestProblemD(DomainProtocol[ContestProblem]):
 
 
 @dataclasses.dataclass(frozen=True)
+class TestResultSetD(DomainProtocol[ps_pb2.TestResultSet]):
+    test_results: List[TestResultD]
+
+    @property
+    def score(self) -> float:
+        return sum(test_result.is_correct
+                   for test_result in self.test_results) / len(
+                       self.test_results)
+
+    @classmethod
+    def from_proto(cls, proto: ps_pb2.TestResultSet) -> TestResultSetD:
+        return TestResultSetD(test_results=[
+            TestResultD.from_proto(test_result)
+            for test_result in proto.test_results
+        ])
+
+    def to_proto(self) -> ps_pb2.TestResultSet:
+        return ps_pb2.TestResultSet(test_results=[
+            test_result.to_proto() for test_result in self.test_results
+        ])
+
+
+@dataclasses.dataclass(frozen=True)
 class TestResultD(DomainProtocol[ps_pb2.TestResult]):
     test_id: str
     problem_id: str
     solution_id: str
     solution_output: str
     exception_info: str
+    expected_output: str
+
+    @property
+    def is_correct(self) -> bool:
+        return self.solution_output == self.expected_output
 
     @classmethod
     def from_proto(cls, proto: ps_pb2.TestResult) -> TestResultD:
@@ -185,14 +251,16 @@ class TestResultD(DomainProtocol[ps_pb2.TestResult]):
                            problem_id=proto.problem_id,
                            solution_id=proto.solution_id,
                            solution_output=proto.solution_output,
-                           exception_info=proto.exception_info)
+                           exception_info=proto.exception_info,
+                           expected_output=proto.expected_output)
 
     def to_proto(self) -> ps_pb2.TestResult:
         return ps_pb2.TestResult(test_id=self.test_id,
                                  problem_id=self.problem_id,
                                  solution_id=self.solution_id,
                                  solution_output=self.solution_output,
-                                 exception_info=self.exception_info)
+                                 exception_info=self.exception_info,
+                                 expected_output=self.expected_output)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -216,7 +284,7 @@ class CodePatchingPromptD(DomainProtocol[ps_pb2.CodePatchingPrompt]):
 
 
 @dataclasses.dataclass(frozen=True)
-class PromptedSolutionD(DomainProtocol[ps_pb2.PatchedSolution]):
+class PatchedSolutionD(DomainProtocol[ps_pb2.PatchedSolution]):
     solution_id: str
     problem_id: str
     prompt_id: str
@@ -225,13 +293,13 @@ class PromptedSolutionD(DomainProtocol[ps_pb2.PatchedSolution]):
     patched_response: Dict[str, str]
 
     @classmethod
-    def from_proto(cls, proto: ps_pb2.PatchedSolution) -> PromptedSolutionD:
-        return PromptedSolutionD(solution_id=proto.solution_id,
-                                 problem_id=proto.problem_id,
-                                 prompt_id=proto.prompt_id,
-                                 model=proto.model,
-                                 patched_solution=proto.patched_solution,
-                                 patched_response=dict(proto.patched_response))
+    def from_proto(cls, proto: ps_pb2.PatchedSolution) -> PatchedSolutionD:
+        return PatchedSolutionD(solution_id=proto.solution_id,
+                                problem_id=proto.problem_id,
+                                prompt_id=proto.prompt_id,
+                                model=proto.model,
+                                patched_solution=proto.patched_solution,
+                                patched_response=dict(proto.patched_response))
 
     def to_proto(self) -> ps_pb2.PatchedSolution:
         return ps_pb2.PatchedSolution(solution_id=self.solution_id,

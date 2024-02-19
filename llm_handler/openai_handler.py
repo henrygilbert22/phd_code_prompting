@@ -8,7 +8,7 @@ import backoff
 import enum
 import numpy as np
 
-import llm_handler_interface as llm_handler_interface
+import llm_handler.llm_handler_interface as llm_handler_interface
 import proto.patched_solutions_pb2 as ps_pb2
 
 
@@ -16,7 +16,7 @@ class ChatModelVersion(enum.Enum,
                        metaclass=llm_handler_interface.DefaultEnumMeta):
     GPT_3_5_TURBO = 'gpt-3.5-turbo-1106'
     GPT_4 = 'gpt-4'
-    GPT_4_TURBO = 'gpt-4-1106-preview'
+    GPT_4_TURBO = 'gpt-4-0125-preview'
 
 
 class EmbeddingModelVersion(enum.Enum,
@@ -27,17 +27,30 @@ class EmbeddingModelVersion(enum.Enum,
 class OpenAIHandler(llm_handler_interface.LLMHandler):
 
     _MODEL_NAME_TO_VERSION: ClassVar[Dict['ps_pb2.ModelType', str]] = {
-        ps_pb2.MODEL_TYPE_GPT_3_5_TURBO: 'gpt-3.5-turbo-1106',
-        ps_pb2.MODEL_TYPE_GPT_4_TURBO: 'gpt-4-1106-preview'
+        ps_pb2.MODEL_TYPE_GPT_3_5_TURBO: 'gpt-3.5-turbo-0125',
+        ps_pb2.MODEL_TYPE_GPT_4_TURBO: 'gpt-4-turbo-preview'
     }
 
     _ENV_KEY_NAME: ClassVar[str] = 'OPENAI_API_KEY'
 
-    def __init__(self, openai_api_key: Optional[str] = None):
-        _openai_api_key = openai_api_key or os.environ.get(self._ENV_KEY_NAME)
-        if not _openai_api_key:
-            raise ValueError(f'{self._ENV_KEY_NAME} not set')
-        openai.api_key = _openai_api_key
+    @classmethod
+    def _read_key_from_file(cls, file_path: str) -> str:
+        with open(file_path, "r") as f:
+            for line in f:
+                print(line)
+                key, value = line.strip().split("=")
+                if 'OPENAI_API_KEY' in key:
+                    return value
+        raise ValueError(f'No OPENAI_API_KEY in {file_path}')
+
+    @classmethod
+    def set_openai_api_key(cls, file_path: Optional[str] = None):
+        openai_api_key = os.environ.get(cls._ENV_KEY_NAME)
+        if file_path and not openai_api_key:
+            openai_api_key = cls._read_key_from_file(file_path)
+        if not openai_api_key:
+            raise ValueError(f'{cls._ENV_KEY_NAME} not found')
+        openai.api_key = openai_api_key
 
     @classmethod
     def get_model_version(cls, model_type: 'ps_pb2.ModelType') -> str:
@@ -51,11 +64,12 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
         ...
 
     @backoff.on_exception(backoff.expo, openai.RateLimitError)
-    def get_chat_completion(self,
+    @classmethod
+    def get_chat_completion(cls,
                             messages: Union[List[ChatCompletionMessageParam],
                                             List[Dict[str, str]]],
                             model_type: 'ps_pb2.ModelType', **kwargs) -> str:
-        model = self.get_model_version(model_type)
+        model = cls.get_model_version(model_type)
         response: ChatCompletion = openai.chat.completions.create(
             model=model,
             messages=cast(List[ChatCompletionMessageParam], messages),
@@ -69,15 +83,12 @@ class OpenAIHandler(llm_handler_interface.LLMHandler):
                 f'Choice did not complete correctly: {response.choices[0]}')
         return response.choices[0].message.content
 
-    @backoff.on_exception(backoff.constant,
-                          openai.RateLimitError,
-                          interval=30,
-                          jitter=None)
+    @classmethod
     def get_text_embedding(
-            self,
+            cls,
             input: str,
             model: Optional[EmbeddingModelVersion] = None) -> List[float]:
-        MODEL_DEFAULT: EmbeddingModelVersion = EmbeddingModelVersion()
+        MODEL_DEFAULT: EmbeddingModelVersion = EmbeddingModelVersion.ADA_002
         model = model or MODEL_DEFAULT
         response = openai.embeddings.create(model=model.value,
                                             encoding_format='float',
