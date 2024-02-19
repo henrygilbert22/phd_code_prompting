@@ -22,14 +22,7 @@ def local_env_setup():
 # Clear openai.api_key before each test
 @pytest.fixture(autouse=True)
 def test_env_setup():
-    openai.api_key = None
-    env_file = open('.env.secret', 'r')
-    env_lines = env_file.readlines()
-    env_file.close()
-    for line in env_lines:
-        key, value = line.split('=')
-        os.environ[key] = value
-
+    openai.api_key = os.environ.get(openai_handler.OpenAIHandler._ENV_KEY_NAME)
 
 # This allows us to clear the OPENAI_API_KEY before any test we want
 @pytest.fixture()
@@ -41,17 +34,6 @@ def mock_settings_env_vars():
 # Define some constants for our tests
 _TEST_KEY: str = "TEST_KEY"
 _TEST_MESSAGE: str = "Hello how are you?"
-_TEST_MESSAGE_FOR_CHAT_COMPLETION: List[ChatCompletionMessageParam] = [{
-    "role":
-    "system",
-    "content":
-    "You are serving as a en endpoint to verify a test."
-}, {
-    "role":
-    "user",
-    "content":
-    "Respond with something to help us verify our code is working."
-}]
 _TEXT_EMBEDDING_ADA_002_LENGTH = 1536
 
 
