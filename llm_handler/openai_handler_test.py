@@ -1,5 +1,5 @@
 import os
-from typing import  List
+from typing import List
 from unittest import mock
 import pytest
 import openai
@@ -33,6 +33,8 @@ def mock_settings_env_vars():
 # Define some constants for our tests
 _TEST_MESSAGE: str = "Hello how are you?"
 _TEXT_EMBEDDING_ADA_002_LENGTH = 1536
+
+
 def test_get_text_embedding():
     # Ensure we are using text-embedding-ada-002 for this test
     handler = openai_handler.OpenAIHandler()
