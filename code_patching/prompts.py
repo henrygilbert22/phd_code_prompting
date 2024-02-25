@@ -33,6 +33,8 @@ You will return the following in JSON format:
 CODE_PATCHING_PROMPT_BASE_VO = CODE_PATCHING_PROMPT_BASE + """
     }}"""
 
+
+
 CODE_PATCHING_PROMPT_BASE_EXPLANATION = CODE_PATCHING_PROMPT_BASE + """
     "change_description":   ["Change 1 Desc", "Change 2 Desc", ...],
     }}
@@ -85,6 +87,8 @@ CODE_PATCHING_PROMPT_MINIMAL = """
         }
 
 """
+
+
 
 PROMPTS = [
     CodePatchingPromptD(prompt_name="code_patching_prompt_base",
